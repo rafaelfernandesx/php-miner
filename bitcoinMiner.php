@@ -85,7 +85,7 @@ class BitcoinMiner
         array_unshift($blockTemplate['transactions'], $coinbaseTx);
         $blockTemplate['nonce'] = 0;
         $targetHash = bin2hex($this->blockBits2Target($blockTemplate['bits']));
-        $timeStart = 1684610818.4904487; // time();
+        $timeStart = time();
         $hashRate = 0.0;
         $hashRateCount = 0;
         $nonce = $extranonceStart;
