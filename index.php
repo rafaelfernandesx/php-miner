@@ -7,16 +7,26 @@ require_once 'bitcoinMiner.php';
 
 $rpcUrl = 'http://localhost:8332';
 $rpcUser = 'user';
-$rpcPass = 'password';
+$rpcPass = 'pass';
 $blockTemplate = new BitcoinBlockTemplate(new BitcoinRpcClient($rpcUrl, $rpcUser, $rpcPass));
 $blockSubmission = new BitcoinBlockSubmission(new BitcoinRpcClient($rpcUrl, $rpcUser, $rpcPass));
 $miner = new BitcoinMiner($blockTemplate, $blockSubmission);
 
-$coinbaseMessage = 'abc';
-$address = '2N4ktXsHBMJeHmHP2wgcdvJV5S3atGETBKx';
+$coinbaseMessage = 'Mined by RafaelFernandes';
+$address = '1rafaeLAdmgQhS2i4BR1tRst666qyr9ut';
 $extranonceStart = 0;
-$timeout = 60; // 60 segundos
+$timeout = 10; // time in seconds to get a new blcktemplate
 
-$result = $miner->mineBlock($coinbaseMessage, $address, $extranonceStart, $timeout);
+$mined = false;
+
+echo "Mining...\n";
+while ($mined == false) {
+    $result = $miner->mineBlock($coinbaseMessage, $address, $extranonceStart, $timeout);
+    if ($result['nonce'] == null) {
+        var_dump($result);
+        $mined = true;
+        break;
+    }
+}
 
 var_dump($result);

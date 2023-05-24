@@ -32,6 +32,7 @@ class BitcoinRpcClient implements RpcClientInterface
 
         $options = [
             CURLOPT_URL => $this->rpcUrl,
+            // CURLOPT_URL => 'https://btc.getblock.io/<your-key>/mainnet/',
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $data,
             CURLOPT_HTTPHEADER => $headers,

@@ -52,20 +52,14 @@ class BitcoinMiner
     public function blockMakeHeader($block)
     {
         $header = "";
-        // Version
         $header .= pack("V", $block['version']);
-        // Previous Block Hash
         $previousBlockHash = hex2bin($block['previousblockhash']);
         $header .= strrev($previousBlockHash);
-        // Merkle Root Hash
         $merkleRootHash = hex2bin($block['merkleroot']);
         $header .= strrev($merkleRootHash);
-        // Time
         $header .= pack("V", $block['curtime']);
-        // Target Bits
         $targetBits = hex2bin($block['bits']);
         $header .= strrev($targetBits);
-        // Nonce
         $header .= pack("V", $block['nonce']);
         return $header;
     }
@@ -86,19 +80,17 @@ class BitcoinMiner
         $blockTemplate['nonce'] = 0;
         $targetHash = bin2hex($this->blockBits2Target($blockTemplate['bits']));
         $timeStart = time();
-        $hashRate = 0.0;
         $hashRateCount = 0;
         $nonce = $extranonceStart;
-
         $coinbaseTx = $this->createCoinbaseTransaction($coinbaseMessage, $address, $nonce, $blockTemplate['coinbasevalue'], $blockTemplate['height']);
         $blockTemplate['transactions'][0] = $coinbaseTx;
         $merkleRoot = $this->calculateMerkleRoot($blockTemplate['transactions']);
         $blockTemplate['merkleroot'] = $merkleRoot;
         $blockHeader = $this->blockMakeHeader($blockTemplate);
+
         while (true) {
             $blockHeader = substr($blockHeader, 0, 76) . pack("V", $nonce);
             $blockHash = $this->blockComputeRawHash($blockHeader);
-            $hashRate += 1 / (microtime(true) - $timeStart);
             $hashRateCount++;
             $currenthash = $this->hashToGmp($blockHash);
             $targHash = $this->hashToGmp(hex2bin($targetHash));
@@ -109,20 +101,18 @@ class BitcoinMiner
                 $result = $this->blockSubmission->submitBlock($blockSub);
                 return $result;
             }
-
             $nonce++;
-
             if ($debugnonceStart && $nonce >= $extranonceStart + $debugnonceStart) {
                 break;
             }
-
             if ($timeout !== null && (time() - $timeStart) >= $timeout) {
+                echo 'Total hash: ' . $hashRateCount . ' in ' . $timeout . " seconds\n";
                 break;
             }
         }
 
         return [
-            'hashrate' => $hashRate / $hashRateCount,
+            'hashRateCount' => $hashRateCount,
             'nonce' => $nonce
         ];
     }
@@ -167,32 +157,19 @@ class BitcoinMiner
         $pubkey_script = "76" . "a9" . "14" . $this->bitcoinaddress2hash160($address) . "88" . "ac";
 
         $tx = "";
-        // version
         $tx .= "01000000";
-        // in-counter
         $tx .= "01";
-        // input[0] prev hash
         $tx .= str_repeat("0", 64);
-        // input[0] prev seqnum
         $tx .= "ffffffff";
-        // input[0] script len
         $tx .= $this->int2varinthex(strlen($coinbase_script) / 2);
-        // input[0] script
         $tx .= $coinbase_script;
-        // input[0] seqnum
         $tx .= "ffffffff";
-        // out-counter
         $tx .= "01";
-        // output[0] value
         $tx .= $this->int2lehex($value, 8);
-        // output[0] script len
         $len = strlen($pubkey_script) / 2;
         $tx .= $this->int2varinthex($len);
-        // output[0] script
         $tx .= $pubkey_script;
-        // lock-time
         $tx .= "00000000";
-
         return $tx;
     }
 
@@ -211,12 +188,7 @@ class BitcoinMiner
             ],
             'vout' => []
         ];
-
-        // $coinbaseTx['txid'] = $this->calculateTransactionHash($coinbaseTx);
-        // $coinbaseTx['hash'] = strrev($coinbaseTx['txid']);
         $coinbaseTx['hash'] = $this->calculateTransactionHash($txData);
-
-
         return $coinbaseTx;
     }
 
@@ -243,24 +215,18 @@ class BitcoinMiner
     private function encodeTransaction($transaction)
     {
         $data = '01000000';
-
         $data .= $this->encodeVarInt(count($transaction['vin']));
-
         foreach ($transaction['vin'] as $input) {
             $data .= $this->hexToLittleEndian($input['coinbase']);
             $data .= $input['sequence'];
         }
-
         $data .= $this->encodeVarInt(count($transaction['vout']));
-
         foreach ($transaction['vout'] as $output) {
             $data .= $this->hexToLittleEndian($output['value']);
             $data .= $this->encodeVarInt(strlen($output['scriptPubKey']) / 2);
             $data .= $output['scriptPubKey'];
         }
-
         $data .= '00000000';
-
         return $data;
     }
 
@@ -282,26 +248,20 @@ class BitcoinMiner
         if (count($transactions) == 1) {
             return $transactions[0]['hash'];
         }
-
         $merkle = [];
-
         foreach ($transactions as $transaction) {
             $merkle[] = $transaction['hash'];
         }
-
         while (count($merkle) > 1) {
             $level = [];
-
             for ($i = 0; $i < count($merkle); $i += 2) {
                 $a = $merkle[$i];
                 $b = isset($merkle[$i + 1]) ? $merkle[$i + 1] : $merkle[$i];
                 $hash = hash('sha256', hex2bin($a . $b), true);
                 $level[] = strrev(bin2hex(hash('sha256', $hash, true)));
             }
-
             $merkle = $level;
         }
-
         return $merkle[0];
     }
 
@@ -316,23 +276,16 @@ class BitcoinMiner
         $bits = hex2bin($bits);
         $shift = ord($bits[0]) - 3;
         $value = substr($bits, 1);
-
-        // Shift value to the left by shift
         $target = $value . str_repeat("\x00", $shift);
-        // Add leading zeros
         $target = str_repeat("\x00", 32 - strlen($target)) . $target;
-
         return $target;
     }
 
     private function buildBlock($block)
     {
         $submission = "";
-        // Block header
         $submission .= bin2hex($this->blockMakeHeader($block));
-        // Number of transactions as a varint
         $submission .= $this->int2varinthex(count($block['transactions']));
-        // Concatenated transactions data
         foreach ($block['transactions'] as $tx) {
             $submission .= $tx['data'];
         }
