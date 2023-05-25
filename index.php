@@ -22,7 +22,7 @@ $mined = false;
 echo "Mining...\n";
 while ($mined == false) {
     $result = $miner->mineBlock($coinbaseMessage, $address, $extranonceStart, $timeout);
-    if ($result['nonce'] == null) {
+    if (empty($result['nonce'])) {
         var_dump($result);
         $mined = true;
         break;
