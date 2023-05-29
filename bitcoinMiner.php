@@ -95,6 +95,8 @@ class BitcoinMiner
             $currenthash = $this->hashToGmp($blockHash);
             $targHash = $this->hashToGmp(hex2bin($targetHash));
             if (gmp_cmp($currenthash, $targHash) <= 0) {
+                file_put_contents('block.json', json_encode($blockTemplate));
+                file_put_contents('info.json', json_encode(get_defined_vars()));
                 $blockTemplate['nonce'] = $nonce;
                 $blockTemplate['hash'] = bin2hex($blockHash);
                 $blockSub = $this->buildBlock($blockTemplate);
@@ -210,37 +212,6 @@ class BitcoinMiner
         $hash = hash('sha256', hash('sha256', hex2bin($tx), true), true);
         $hash = implode('', array_reverse(str_split(bin2hex($hash), 2)));
         return $hash;
-    }
-
-    private function encodeTransaction($transaction)
-    {
-        $data = '01000000';
-        $data .= $this->encodeVarInt(count($transaction['vin']));
-        foreach ($transaction['vin'] as $input) {
-            $data .= $this->hexToLittleEndian($input['coinbase']);
-            $data .= $input['sequence'];
-        }
-        $data .= $this->encodeVarInt(count($transaction['vout']));
-        foreach ($transaction['vout'] as $output) {
-            $data .= $this->hexToLittleEndian($output['value']);
-            $data .= $this->encodeVarInt(strlen($output['scriptPubKey']) / 2);
-            $data .= $output['scriptPubKey'];
-        }
-        $data .= '00000000';
-        return $data;
-    }
-
-    private function encodeVarInt($value)
-    {
-        if ($value < 0xfd) {
-            return str_pad(dechex($value), 2, '0', STR_PAD_LEFT);
-        } elseif ($value <= 0xffff) {
-            return 'fd' . str_pad(dechex($value), 4, '0', STR_PAD_LEFT);
-        } elseif ($value <= 0xffffffff) {
-            return 'fe' . str_pad(dechex($value), 8, '0', STR_PAD_LEFT);
-        } else {
-            return 'ff' . str_pad(dechex($value), 16, '0', STR_PAD_LEFT);
-        }
     }
 
     private function calculateMerkleRoot($transactions)
