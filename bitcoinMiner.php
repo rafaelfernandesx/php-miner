@@ -27,9 +27,9 @@ class BitcoinMiner
 
     public function bitcoinaddress2hash160($address)
     {
-        $decoded = $this->base58Decode($address);
-        $hash160 = substr($decoded, 1, 20);
-        return bin2hex($hash160);
+        $decoded = bin2hex($this->base58Decode($address));
+        $hash160 = substr($decoded, 0, 40);
+        return $hash160;
     }
 
     public function base58Decode($base58)
@@ -71,51 +71,79 @@ class BitcoinMiner
         return $hash2;
     }
 
-    public function mineBlock($coinbaseMessage, $address, $extranonceStart, $timeout = null, $debugnonceStart = false)
+    public function mineBlock($blockTemplate, $coinbaseMessage, $address, $extranonceStart, $timeout = null, $debugnonceStart = false)
     {
-        $coinbaseMessage = bin2hex($coinbaseMessage);
-        $blockTemplate = $this->blockTemplate->getBlockTemplate();
         $coinbaseTx = [];
         array_unshift($blockTemplate['transactions'], $coinbaseTx);
+        $coinbaseMessage = bin2hex($coinbaseMessage);
         $blockTemplate['nonce'] = 0;
         $targetHash = bin2hex($this->blockBits2Target($blockTemplate['bits']));
         $timeStart = time();
+        $hashRate = 0;
         $hashRateCount = 0;
-        $nonce = $extranonceStart;
-        $coinbaseTx = $this->createCoinbaseTransaction($coinbaseMessage, $address, $nonce, $blockTemplate['coinbasevalue'], $blockTemplate['height']);
-        $blockTemplate['transactions'][0] = $coinbaseTx;
-        $merkleRoot = $this->calculateMerkleRoot($blockTemplate['transactions']);
-        $blockTemplate['merkleroot'] = $merkleRoot;
-        $blockHeader = $this->blockMakeHeader($blockTemplate);
+        $extraNonce = $extranonceStart;
+        while ($extraNonce < 0xffffffff) {
+            $coinbaseScript = $this->buildCoinbaseScript($coinbaseMessage, $extraNonce);
+            $coinbaseTx = $this->createCoinbaseTransaction($coinbaseScript, $address, $blockTemplate['coinbasevalue'], $blockTemplate['height']);
+            $blockTemplate['transactions'][0] = $coinbaseTx;
+            $blockTemplate['merkleroot'] = $this->calculateMerkleRoot($blockTemplate['transactions']);
+            $blockHeader = $this->blockMakeHeader($blockTemplate);
+            $timeStamp = time();
+            $nonce = $debugnonceStart ? $debugnonceStart : 0;
+            while ($nonce <= 0xffffffff) {
+                $blockHeader = substr($blockHeader, 0, 76) . pack("V", $nonce);
+                $blockHash = $this->blockComputeRawHash($blockHeader);
+                $currenthash = $this->hashToGmp($blockHash);
+                $targHash = $this->hashToGmp(hex2bin($targetHash));
+                if (gmp_cmp($currenthash, $targHash) <= 0) {
+                    file_put_contents('block.json', json_encode($blockTemplate));
+                    $blockTemplate['nonce'] = $nonce;
+                    $blockTemplate['hash'] = bin2hex($blockHash);
+                    $blockSub = $this->buildBlock($blockTemplate);
+                    $result = $this->blockSubmission->submitBlock($blockSub);
+                    return [
+                        'hashRate' => $hashRate,
+                        'hashRateCount' => $hashRateCount,
+                        'nonce' => $nonce,
+                        'extraNonce' => $extraNonce,
+                        'blockTemplate' => $blockTemplate,
+                        'result' => $result
+                    ];
+                }
+                if ($nonce > 0 && $nonce % 1048576 == 0) {
+                    $hashRate = $hashRate + ((1048576 / (time() - $timeStamp)) - $hashRate) / ($hashRateCount + 1);
+                    $hashRateCount += 1;
 
-        while (true) {
-            $blockHeader = substr($blockHeader, 0, 76) . pack("V", $nonce);
-            $blockHash = $this->blockComputeRawHash($blockHeader);
-            $hashRateCount++;
-            $currenthash = $this->hashToGmp($blockHash);
-            $targHash = $this->hashToGmp(hex2bin($targetHash));
-            if (gmp_cmp($currenthash, $targHash) <= 0) {
-                file_put_contents('block.json', json_encode($blockTemplate));
-                file_put_contents('info.json', json_encode(get_defined_vars()));
-                $blockTemplate['nonce'] = $nonce;
-                $blockTemplate['hash'] = bin2hex($blockHash);
-                $blockSub = $this->buildBlock($blockTemplate);
-                $result = $this->blockSubmission->submitBlock($blockSub);
-                return $result;
+                    $timeStamp = time();
+                    if ($timeout && ($timeStamp - $timeStart) > $timeout) {
+                        return [
+                            'hashRate' => $hashRate,
+                            'hashRateCount' => $hashRateCount,
+                            'nonce' => $nonce,
+                            'extraNonce' => $extraNonce,
+                            'blockTemplate' => null
+                        ];
+                    } else {
+                        print_r([
+                            'hashRate' => $hashRate,
+                            'hashRateCount' => $hashRateCount,
+                            'nonce' => $nonce,
+                            'extraNonce' => $extraNonce,
+                            'blockTemplate' => null
+                        ]);
+                    }
+                }
+                $nonce++;
             }
-            $nonce++;
-            if ($debugnonceStart && $nonce >= $extranonceStart + $debugnonceStart) {
-                break;
-            }
-            if ($timeout !== null && (time() - $timeStart) >= $timeout) {
-                echo 'Total hash: ' . $hashRateCount . ' in ' . $timeout . " seconds\n";
-                break;
-            }
+            $extraNonce += 1;
         }
 
         return [
+            'hashRate' => $hashRate,
             'hashRateCount' => $hashRateCount,
-            'nonce' => $nonce
+            'nonce' => $nonce,
+            'extraNonce' => $extraNonce,
+            'blockTemplate' => null
         ];
     }
     public function bitLength($value)
@@ -175,9 +203,8 @@ class BitcoinMiner
         return $tx;
     }
 
-    private function createCoinbaseTransaction($message, $address, $nonce, $coinbaseValue, $height)
+    private function createCoinbaseTransaction($coinbaseScript, $address, $coinbaseValue, $height)
     {
-        $coinbaseScript = $this->buildCoinbaseScript($message, $nonce);
         $txData = $this->txMakeCoinbase($coinbaseScript, $address, $coinbaseValue, $height);
         $coinbaseTx = [
             'data' => $txData,
@@ -214,26 +241,39 @@ class BitcoinMiner
         return $hash;
     }
 
-    private function calculateMerkleRoot($transactions)
+    private function calculateMerkleRoot($tx_hashes)
     {
-        if (count($transactions) == 1) {
-            return $transactions[0]['hash'];
+        # Convert list of ASCII hex transaction hashes into bytes
+        $ntx_hashes = [];
+        foreach ($tx_hashes as $tx_hash) {
+            $ntx_hashes[] = strrev(hex2bin($tx_hash['hash']));
         }
-        $merkle = [];
-        foreach ($transactions as $transaction) {
-            $merkle[] = $transaction['hash'];
-        }
-        while (count($merkle) > 1) {
-            $level = [];
-            for ($i = 0; $i < count($merkle); $i += 2) {
-                $a = $merkle[$i];
-                $b = isset($merkle[$i + 1]) ? $merkle[$i + 1] : $merkle[$i];
-                $hash = hash('sha256', hex2bin($a . $b), true);
-                $level[] = strrev(bin2hex(hash('sha256', $hash, true)));
+        $tx_hashes = $ntx_hashes;
+
+
+        // # Iteratively compute the merkle root hash
+        while (count($tx_hashes) > 1) {
+            # Duplicate last hash if the list is odd
+            if (count($tx_hashes) % 2 != 0) {
+                $tx_hashes[] = $tx_hashes[count($tx_hashes) - 1];
             }
-            $merkle = $level;
+
+            $tx_hashes_new = [];
+            $count = floor(count($tx_hashes) / 2);
+            for ($i = 0; $i < $count; $i++) {
+                # Concatenate the next two
+                $concat = array_shift($tx_hashes) . array_shift($tx_hashes);
+                # Hash them
+                $concat_hash = hex2bin(hash('sha256', hex2bin(hash('sha256', $concat))));
+                # Add them to our working list
+                $tx_hashes_new[] = $concat_hash;
+            }
+            $tx_hashes = $tx_hashes_new;
         }
-        return $merkle[0];
+
+        # Format the root in big endian ascii hex
+        $tx_hash = bin2hex(strrev($tx_hashes[0]));
+        return $tx_hash;
     }
 
     private function hashToGmp($hash)
