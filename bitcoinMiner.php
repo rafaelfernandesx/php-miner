@@ -90,13 +90,14 @@ class BitcoinMiner
             $blockHeader = $this->blockMakeHeader($blockTemplate);
             $timeStamp = time();
             $nonce = $debugnonceStart ? $debugnonceStart : 0;
+            $debugnonceStart =0;//remove before tests
             while ($nonce <= 0xffffffff) {
                 $blockHeader = substr($blockHeader, 0, 76) . pack("V", $nonce);
                 $blockHash = $this->blockComputeRawHash($blockHeader);
                 $currenthash = $this->hashToGmp($blockHash);
                 $targHash = $this->hashToGmp(hex2bin($targetHash));
                 if (gmp_cmp($currenthash, $targHash) <= 0) {
-                    file_put_contents('block.json', json_encode($blockTemplate));
+                    file_put_contents('blockMined.json', json_encode($blockTemplate));
                     $blockTemplate['nonce'] = $nonce;
                     $blockTemplate['hash'] = bin2hex($blockHash);
                     $blockSub = $this->buildBlock($blockTemplate);
@@ -124,6 +125,9 @@ class BitcoinMiner
                             'blockTemplate' => null
                         ];
                     } else {
+                        $blockTemplate['nonce'] = $nonce;//remove before tests
+                        $blockTemplate['extraNonce'] = $extraNonce;//remove before tests
+                        file_put_contents('block.json', json_encode($blockTemplate));//remove before tests
                         print_r([
                             'hashRate' => $hashRate,
                             'hashRateCount' => $hashRateCount,

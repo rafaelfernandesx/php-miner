@@ -23,7 +23,7 @@ while ($mined == false) {
     // $blockTemplate = $this->blockTemplate->getBlockTemplate();
     $blockTemplate = json_decode(file_get_contents('block.json'), true);
     echo "Mining block template, height " . $blockTemplate['height'] . "\n";
-    $result = $miner->mineBlock($blockTemplate, $coinbaseMessage, $address, $extranonceStart, $timeout);
+    $result = $miner->mineBlock($blockTemplate, $coinbaseMessage, $address, $blockTemplate['extraNonce'] ?? 0, $timeout, $blockTemplate['nonce'] ?? 0);
 
     $result['hashRatePerSeconds'] = ($result['hashRate'] / 1000.0) . " KH/s\n";
     print_r($result);
