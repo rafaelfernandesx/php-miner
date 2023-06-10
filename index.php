@@ -20,8 +20,8 @@ $timeout = false; // time in seconds to get a new blocktemplate or false to infi
 $mined = false;
 
 while ($mined == false) {
-    // $blockTemplate = $this->blockTemplate->getBlockTemplate();
-    $blockTemplate = json_decode(file_get_contents('block.json'), true);
+    $blockTemplate = $blockTemplate->getBlockTemplate();
+    // $blockTemplate = json_decode(file_get_contents('block.json'), true);
     echo "Mining block template, height " . $blockTemplate['height'] . "\n";
     $result = $miner->mineBlock($blockTemplate, $coinbaseMessage, $address, $blockTemplate['extraNonce'] ?? 0, $timeout, $blockTemplate['nonce'] ?? 0);
 
