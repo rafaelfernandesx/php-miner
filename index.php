@@ -20,16 +20,20 @@ $timeout = 120; // time in seconds to get a new blocktemplate or false to infini
 $mined = false;
 
 while ($mined == false) {
-    $blockTemplate = $blockTemplate->getBlockTemplate();
-    // $blockTemplate = json_decode(file_get_contents('block.json'), true);
-    echo "Mining block template, height " . $blockTemplate['height'] . "\n";
-    $result = $miner->mineBlock($blockTemplate, $coinbaseMessage, $address, $blockTemplate['extraNonce'] ?? 0, $timeout, $blockTemplate['nonce'] ?? 0);
+    try {
+        $block = $blockTemplate->getBlockTemplate();
+        // $blockTemplate = json_decode(file_get_contents('block.json'), true);
+        echo "Mining block template, height " . $block['height'] . "\n";
+        $result = $miner->mineBlock($block, $coinbaseMessage, $address, $block['extraNonce'] ?? 0, $timeout, $block['nonce'] ?? 0);
 
-    $result['hashRatePerSeconds'] = ($result['hashRate'] / 1000.0) . " KH/s\n";
-    print_r($result);
-    if (empty($result['nonce'])) {
-        $mined = true;
-        break;
+        $result['hashRatePerSeconds'] = ($result['hashRate'] / 1000.0) . " KH/s\n";
+        print_r($result);
+        if (empty($result['nonce'])) {
+            $mined = true;
+            break;
+        }
+    } catch (Exception $e) {
+        print($e);
     }
 }
 
