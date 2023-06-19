@@ -14,7 +14,7 @@ $miner = new BitcoinMiner($blockTemplate, $blockSubmission);
 
 $coinbaseMessage = 'RafaelFernandes';
 $address = '1rafaeLAdmgQhS2i4BR1tRst666qyr9ut';
-$timeout = 5; // time in seconds to get a new blocktemplate or false to infinitely mine the same block until mined
+$timeout = 120; // time in seconds to get a new blocktemplate or false to infinitely mine the same block until mined
 
 $mined = false;
 
