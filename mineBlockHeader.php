@@ -9,9 +9,11 @@ $blockHeader = MineBlockHeader::blockMakeHeader(
     $json["result"]["bits"],
     $json["result"]["nonce"],
 );
+echo $blockHeader . "\n";
 $result = MineBlockHeader::mineBlock(
-    '010000004944469562ae1c2c74d9a535e00b6f3e40ffbad4f2fda3895501b582000000007a06ea98cd40ba2e3288262b28638cec5337c1456aaf5eedc8e9e5a20f062bdf8cc16649ffff001d2bfee0a9',
-    2850093634
+    $blockHeader,
+    // $json["result"]["nonce"] ?? 0
+    0
 );
 echo "------------------------------MINDED BLOCK HEADER---------------------------------\n";
 print_r($result);
@@ -22,6 +24,7 @@ class MineBlockHeader
     {
         $bits = substr($blockHeader, strlen($blockHeader) - 16, 8);
         $bits = self::hexToLittleEndian($bits);
+        $bitsDecimal = hexdec($bits);
         $targetHash = bin2hex(self::blockBits2Target($bits));
         $timeStart = time();
         $hashRate = 0;
@@ -32,8 +35,11 @@ class MineBlockHeader
             $timeStamp = time();
             $nonce = $debugnonceStart ? $debugnonceStart : 0;
             while ($nonce <= 0xffffffff) {
+                $pnonce = bin2hex(pack("V", $nonce));
                 $blockHeader = substr($blockHeader, 0, 76) . pack("V", $nonce);
+                $blockHex = bin2hex($blockHeader);
                 $blockHash = self::blockComputeRawHash($blockHeader);
+                $blockHashHex = bin2hex($blockHash);
                 $currenthash = self::hashToGmp($blockHash);
                 $targHash = self::hashToGmp(hex2bin($targetHash));
                 if (gmp_cmp($currenthash, $targHash) <= 0) {
@@ -93,7 +99,7 @@ class MineBlockHeader
 
         //concat it all
         $header_hex = $version . $prevBlockHash . $rootHash . $time . $bits . $nonce;
-        return hex2bin($header_hex);
+        return $header_hex;
     }
     static private function SwapOrder($in)
     {
