@@ -82,7 +82,7 @@ class BitcoinMiner
         $hashCount = 0;
         $targetRandomMessageCount = 1000000; //every 1 million hashs randomizes the extra nonce
         $nonce = random_int(0, 0xffffffff);
-        while ($timeout == null || $timeStart + $timeout > time()) {
+        while ($timeout == null || $timeStart + $timeout >= time()) {
             $extraNonce = hexdec(bin2hex(random_bytes(4))); //random_int(0, 0xffffffff); //
             $coinbaseScript = $this->buildCoinbaseScript($coinbaseMessage, $extraNonce);
             $coinbaseTx = $this->createCoinbaseTransaction($coinbaseScript, $address, $blockTemplate['coinbasevalue'], $blockTemplate['height']);
@@ -90,7 +90,7 @@ class BitcoinMiner
             $blockTemplate['merkleroot'] = $this->calculateMerkleRoot($blockTemplate['transactions']);
             $blockHeader = $this->blockMakeHeader($blockTemplate);
 
-            while ($hashCount < $targetRandomMessageCount && $timeStart + $timeout > time()) {
+            while ($hashCount < $targetRandomMessageCount && $timeStart + $timeout >= time()) {
                 $blockHeader = substr($blockHeader, 0, 76) . pack("V", $nonce);
                 $blockHash = $this->blockComputeRawHash($blockHeader);
                 // $currenthash = $this->hashToGmp($blockHash);
