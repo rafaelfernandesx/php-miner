@@ -20,7 +20,7 @@ class BitcoinMiner
             $value >>= 8;
         }
         $bytes = array_reverse($bytes);
-        $hex = bin2hex(call_user_func_array('pack', array_merge(['C*'], $bytes)));
+        $hex = bin2hex(pack('C*', ...$bytes));
         $hex = implode('', array_reverse(str_split($hex, 2)));
         return $hex;
     }
@@ -71,84 +71,52 @@ class BitcoinMiner
         return $hash2;
     }
 
-    public function mineBlock($blockTemplate, $coinbaseMessage, $address, $extranonceStart, $timeout = null, $debugnonceStart = false)
+    public function mineBlock($blockTemplate, $coinbaseMessage, $address, $timeout = null)
     {
         $coinbaseTx = [];
         array_unshift($blockTemplate['transactions'], $coinbaseTx);
         $coinbaseMessage = bin2hex($coinbaseMessage);
         $blockTemplate['nonce'] = 0;
-        $targetHash = bin2hex($this->blockBits2Target($blockTemplate['bits']));
+        $targetHash = $this->blockBits2Target($blockTemplate['bits']);
         $timeStart = time();
-        $hashRate = 0;
-        $hashRateCount = 0;
-        $extraNonce = $extranonceStart;
-        while ($extraNonce < 0xffffffff) {
+        $hashCount = 0;
+        $targetRandomMessageCount = 1000000; //every 1 million hashs randomizes the extra nonce
+        $nonce = random_int(0, 0xffffffff);
+        while ($timeout == null || $timeStart + $timeout > time()) {
+            $extraNonce = hexdec(bin2hex(random_bytes(4))); //random_int(0, 0xffffffff); //
             $coinbaseScript = $this->buildCoinbaseScript($coinbaseMessage, $extraNonce);
             $coinbaseTx = $this->createCoinbaseTransaction($coinbaseScript, $address, $blockTemplate['coinbasevalue'], $blockTemplate['height']);
             $blockTemplate['transactions'][0] = $coinbaseTx;
             $blockTemplate['merkleroot'] = $this->calculateMerkleRoot($blockTemplate['transactions']);
             $blockHeader = $this->blockMakeHeader($blockTemplate);
-            $timeStamp = time();
-            $nonce = $debugnonceStart ? $debugnonceStart : 0;
-            $debugnonceStart = 0; //remove before tests
-            while ($nonce <= 0xffffffff) {
+
+            while ($hashCount < $targetRandomMessageCount && $timeStart + $timeout > time()) {
                 $blockHeader = substr($blockHeader, 0, 76) . pack("V", $nonce);
                 $blockHash = $this->blockComputeRawHash($blockHeader);
-                $currenthash = $this->hashToGmp($blockHash);
-                $targHash = $this->hashToGmp(hex2bin($targetHash));
-                if (gmp_cmp($currenthash, $targHash) <= 0) {
-                    file_put_contents('blockMined.json', json_encode($blockTemplate));
+                // $currenthash = $this->hashToGmp($blockHash);
+                // $targHash = $this->hashToGmp($targetHash);
+                if ($blockHash < $targetHash) { // if (gmp_cmp($currenthash, $targHash) <= 0) {
                     $blockTemplate['nonce'] = $nonce;
                     $blockTemplate['hash'] = bin2hex($blockHash);
+                    file_put_contents('blockMined.json', json_encode($blockTemplate));
                     $blockSub = $this->buildBlock($blockTemplate);
+                    file_put_contents('blockSub.json', $blockSub);
                     $result = $this->blockSubmission->submitBlock($blockSub);
                     return [
-                        'hashRate' => $hashRate,
-                        'hashRateCount' => $hashRateCount,
+                        'hashCount' => $hashCount,
                         'nonce' => $nonce,
                         'extraNonce' => $extraNonce,
                         'blockTemplate' => $blockTemplate,
                         'result' => $result
                     ];
                 }
-                if ($nonce > 0 && $nonce % 1048576 == 0) {
-                    // $hashRate = $hashRate + ((1048576 / (time() - $timeStamp)) - $hashRate) / ($hashRateCount + 1);
-                    $hashRateCount += 1;
-
-                    $timeStamp = time();
-                    if ($timeout && ($timeStamp - $timeStart) > $timeout) {
-                        return [
-                            'hashRate' => $hashRate,
-                            'hashRateCount' => $hashRateCount,
-                            'nonce' => $nonce,
-                            'extraNonce' => $extraNonce,
-                            'blockTemplate' => null
-                        ];
-                    } else {
-                        $blockTemplate['nonce'] = $nonce; //remove before tests
-                        $blockTemplate['extraNonce'] = $extraNonce; //remove before tests
-                        file_put_contents('block.json', json_encode($blockTemplate)); //remove before tests
-                        print_r([
-                            'hashRate' => $hashRate,
-                            'hashRateCount' => $hashRateCount,
-                            'nonce' => $nonce,
-                            'extraNonce' => $extraNonce,
-                            'blockTemplate' => null
-                        ]);
-                    }
-                }
-                $nonce++;
+                $nonce = hexdec(bin2hex(random_bytes(4))); //random_int(0, 0xffffffff); //
+                $hashCount++;
             }
-            $extraNonce += 1;
+            $targetRandomMessageCount += $hashCount;
         }
 
-        return [
-            'hashRate' => $hashRate,
-            'hashRateCount' => $hashRateCount,
-            'nonce' => $nonce,
-            'extraNonce' => $extraNonce,
-            'blockTemplate' => null
-        ];
+        return 'hash count: ' . $hashCount . ', hashHate: ' . intval(($hashCount / $timeout) / 1000) . " kh/s\n";
     }
     public function bitLength($value)
     {

@@ -47,9 +47,9 @@ class BitcoinRpcClient implements RpcClientInterface
         $jsonResponse = json_decode($response, true);
 
         if ($jsonResponse['id'] != $rpcId) {
-            throw new Exception('Invalid response id: got ' . $jsonResponse['id'] . ', expected ' . $rpcId);
+            throw new Exception('Invalid response: ' . $jsonResponse);
         } elseif ($jsonResponse['error'] !== null) {
-            throw new Exception('RPC error: ' . json_encode($jsonResponse['error']));
+            throw new Exception('RPC error: ' . json_encode($jsonResponse));
         }
 
         return $jsonResponse['result'];
