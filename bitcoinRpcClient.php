@@ -36,7 +36,8 @@ class BitcoinRpcClient implements RpcClientInterface
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $data,
             CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_RETURNTRANSFER => true
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_SSL_VERIFYPEER => false
         ];
 
         $curl = curl_init();
