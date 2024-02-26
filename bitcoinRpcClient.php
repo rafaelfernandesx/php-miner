@@ -32,7 +32,7 @@ class BitcoinRpcClient implements RpcClientInterface
 
         $options = [
             // CURLOPT_URL => $this->rpcUrl,
-            CURLOPT_URL => 'https://btc.getblock.io/d2f0f5e3-43e5-4919-8aec-dac1176b69a8/mainnet/',
+            CURLOPT_URL => 'https://go.getblock.io/6edfe3170d224f748ae86b14e4df45da',
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $data,
             CURLOPT_HTTPHEADER => $headers,
