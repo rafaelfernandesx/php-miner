@@ -32,17 +32,24 @@ class BitcoinRpcClient implements RpcClientInterface
 
         $options = [
             // CURLOPT_URL => $this->rpcUrl,
-            CURLOPT_URL => 'https://btc.getblock.io/d2f0f5e3-43e5-4919-8aec-dac1176b69a8/mainnet/',
+            CURLOPT_URL => 'https://go.getblock.io/key',
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $data,
             CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_RETURNTRANSFER => true
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
         ];
 
         $curl = curl_init();
         curl_setopt_array($curl, $options);
         $response = curl_exec($curl);
+        if (curl_errno($curl)) {
+            $error_msg = curl_error($curl);
+            print_r($error_msg);
+        }
         curl_close($curl);
+
 
         $jsonResponse = json_decode($response, true);
 
