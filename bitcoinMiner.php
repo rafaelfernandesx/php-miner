@@ -124,18 +124,19 @@ class BitcoinMiner
                             'extraNonce' => $extraNonce,
                             'blockTemplate' => null
                         ];
-                    } else {
-                        $blockTemplate['nonce'] = $nonce; //remove before tests
-                        $blockTemplate['extraNonce'] = $extraNonce; //remove before tests
-                        file_put_contents('block.json', json_encode($blockTemplate)); //remove before tests
-                        print_r([
-                            'hashRate' => $hashRate,
-                            'hashRateCount' => $hashRateCount,
-                            'nonce' => $nonce,
-                            'extraNonce' => $extraNonce,
-                            'blockTemplate' => null
-                        ]);
                     }
+                    //  else {
+                    //     $blockTemplate['nonce'] = $nonce; //remove before tests
+                    //     $blockTemplate['extraNonce'] = $extraNonce; //remove before tests
+                    //     file_put_contents('block.json', json_encode($blockTemplate)); //remove before tests
+                    //     print_r([
+                    //         'hashRate' => $hashRate,
+                    //         'hashRateCount' => $hashRateCount,
+                    //         'nonce' => $nonce,
+                    //         'extraNonce' => $extraNonce,
+                    //         'blockTemplate' => null
+                    //     ]);
+                    // }
                 }
                 $nonce++;
             }
