@@ -68,10 +68,38 @@ class StratumMiner
         $target = $this->bitstotarget($work->bits); // Convertendo target da pool
         $nonce = 0;
 
+        $start_time = microtime(true);
+        $last_report_time = $start_time;
+        $last_check_time = $start_time;
+        $hash_count = 0;
+
         while (true) {
+            $current_time = microtime(true);
+            // Verificar se há um novo bloco a cada 1 minuto
+            if ($current_time - $last_check_time >= 60) {
+                echo "Checking for new block...\n";
+                $newBlock = $this->client->getWork();
+                if ($newBlock->prev_hash != $work->prev_hash && $newBlock->clean_jobs == true) {
+                    print_r($newBlock);
+                    return $this->mine($newBlock);
+                }
+                $last_check_time = $current_time;
+            }
+
+
             $hash = $this->build_block_header($work->version, $previousblock, $merkle_root, $time, $work->bits, $nonce);
             $gmphash = gmp_init($hash, 16);
             $gmptarget = gmp_init($target, 16);
+
+            $hash_count++;
+
+
+            if ($current_time - $last_report_time >= 5) {
+                $elapsed_time = $current_time - $start_time;
+                $hash_rate = $hash_count / $elapsed_time;
+                echo intval($hash_rate) . " H/s | Previous Block: " . $work->prev_hash . ' | Last Nonce: ' . number_format(intval($nonce), 0, ',', '.') .  "\n";
+                $last_report_time = $current_time;
+            }
 
             if (gmp_cmp($gmphash, $gmptarget) < 0) {
                 $nonce = str_pad(dechex($nonce), 8, '0', STR_PAD_LEFT);
@@ -92,8 +120,13 @@ class StratumMiner
 }
 
 $miner = new StratumMiner("sha256.poolbinance.com", 443, "worker", "password"); //binance example
-$work = $miner->client->getWork();
-$result = $miner->mine($work);
-if ($result) {
-    print_r($result);
+while (true) {
+
+    $work = $miner->client->getWork();
+    print_r($work);
+    $result = $miner->mine($work);
+
+    if ($result) {
+        print_r($result);
+    }
 }

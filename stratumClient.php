@@ -9,7 +9,7 @@ class Work
     public $version;
     public $bits;
     public $ntime;
-    public $clean_jobs;
+    public bool $clean_jobs;
 
     public $extranonce1;
 
@@ -89,13 +89,12 @@ class StratumClient
         // $work = $this->work->setWork($json);
         // return $work;
         while (!feof($this->socket)) {
-            $data = fgets($this->socket);
+            $data = $this->read();
             if ($data) {
-                echo "Recebido: $data\n";
+                // print_r($data);
 
-                if (str_contains($data, '"method":"mining.notify"')) {
-                    $json = json_decode($data, true);
-                    $work = $this->work->setWork($json);
+                if ($data['method'] == 'mining.notify') {
+                    $work = $this->work->setWork($data);
                     return $work;
                 }
             }
